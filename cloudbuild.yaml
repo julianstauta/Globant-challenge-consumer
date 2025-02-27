@@ -10,3 +10,6 @@ steps:
     '--allow-unauthenticated'
   ]
 
+# Set Cloud Build to use the latest logs
+options:
+  logging: CLOUD_LOGGING_ONLY
