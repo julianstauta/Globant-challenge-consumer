@@ -1,0 +1,12 @@
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+  args: [
+    'functions', 'deploy', 'gcs_trigger',
+    '--source=.',
+    '--runtime=python310',
+    '--entry-point=gcs_trigger',
+    '--region=us-central1',
+    '--trigger-http',  # No direct event trigger
+    '--allow-unauthenticated'
+  ]
+

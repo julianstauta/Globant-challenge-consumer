@@ -1,6 +1,7 @@
 import functions_framework
 import pandas as pd
 import requests
+import io
 from google.cloud import storage
 
 # Cloud Run API endpoint
@@ -19,11 +20,11 @@ dict_col_names = {
 # Google Cloud Storage Client
 storage_client = storage.Client()
 
-def process_csv(file_path, table):
+def process_csv(csv_data, table):
     """Reads, processes the CSV, and sends valid rows to API."""
     try:
         # Read CSV file
-        df = pd.read_csv(file_path, names=dict_col_names.get(table), header=None)
+        df = pd.read_csv(io.BytesIO(csv_data), names=dict_col_names.get(table), header=None)
 
         # Separate missing data
         missing_data_df = df[df.isnull().any(axis=1)]
@@ -68,22 +69,20 @@ def gcs_trigger(cloud_event):
     file_name = data["name"]
 
     print(f"New file detected: gs://{bucket_name}/{file_name}")
-
     # Download the file from GCS
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(file_name)
-    local_file_path = f"/tmp/{file_name}"
-    blob.download_to_filename(local_file_path)
+    csv_data = blob.download_as_bytes()
 
-    print(f"Downloaded {file_name} to {local_file_path}")
+    print(f"Started processing {file_name}")
 
     # Process the CSV file
     if "employee" in f"{file_name}".lower():
-        process_csv(local_file_path, "hired_employees")
+        process_csv(csv_data, "hired_employees")
     elif "department" in f"{file_name}".lower():
-        process_csv(local_file_path, "departments")
+        process_csv(csv_data, "departments")
     elif "job" in f"{file_name}".lower():
-        process_csv(local_file_path, "jobs")
+        process_csv(csv_data, "jobs")
     else:
         print(f"File inserted des not belongs to any of the tables")
 
