@@ -1,5 +1,5 @@
-# Use the official Google Cloud Functions runtime
-FROM gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+# Use official Python image
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
