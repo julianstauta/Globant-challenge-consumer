@@ -30,7 +30,7 @@ def process_csv(csv_data, table, filename, bucket):
 
         # Separate missing data
         missing_data_df = df[df.isnull().any(axis=1)]
-        valid_data_df = df.dropna()\
+        valid_data_df = df.dropna()
         
         print(f"Rows with missing values: {len(missing_data_df)}")
         print(f"Valid rows to insert: {len(valid_data_df)}")
@@ -85,6 +85,12 @@ def gcs_trigger(cloud_event):
     # Extract bucket name and file name
     bucket_name = data["bucket"]
     file_name = data["name"]
+
+    if not file_name.startswith("input/"):
+        print(f"Skipping file {file_name}, not in incoming-data/")
+        return
+    
+    print(f"Processing file: {file_name}")
 
     print(f"New file detected: gs://{bucket_name}/{file_name}")
     # Download the file from GCS
