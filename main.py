@@ -2,7 +2,9 @@ import functions_framework
 import pandas as pd
 import requests
 import io
+import datetime
 from google.cloud import storage
+from pathlib import Path
 
 # Cloud Run API endpoint
 API_URL = "https://globant-challenge-170792856253.us-central1.run.app/upload-data"  # Update with actual URL
@@ -20,7 +22,7 @@ dict_col_names = {
 # Google Cloud Storage Client
 storage_client = storage.Client()
 
-def process_csv(csv_data, table):
+def process_csv(csv_data, table, filename, bucket):
     """Reads, processes the CSV, and sends valid rows to API."""
     try:
         # Read CSV file
@@ -28,11 +30,27 @@ def process_csv(csv_data, table):
 
         # Separate missing data
         missing_data_df = df[df.isnull().any(axis=1)]
-        valid_data_df = df.dropna()
-
+        valid_data_df = df.dropna()\
+        
         print(f"Rows with missing values: {len(missing_data_df)}")
         print(f"Valid rows to insert: {len(valid_data_df)}")
 
+        # Upload rows with m,isssing values to a new file in GCS
+        csv_buffer = io.StringIO()
+        missing_data_df.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+
+        # Generate a timestamp string
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Define file path in GCS
+        destination_blob_name = f"rejected/{timestamp}_{filename}"
+
+        # Upload to GCS
+        blob = bucket.blob(destination_blob_name)
+        blob.upload_from_string(csv_buffer.getvalue(), content_type="text/csv")
+
+        print(f"Missing data saved to: {destination_blob_name}")
+        
         # Process only valid rows
         batches = [valid_data_df.iloc[i:i + BATCH_SIZE] for i in range(0, len(valid_data_df), BATCH_SIZE)]
 
@@ -73,16 +91,17 @@ def gcs_trigger(cloud_event):
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(file_name)
     csv_data = blob.download_as_bytes()
-
+    path = Path(file_name)
+    f_name = path.name
     print(f"Started processing {file_name}")
 
     # Process the CSV file
-    if "employee" in f"{file_name}".lower():
-        process_csv(csv_data, "hired_employees")
-    elif "department" in f"{file_name}".lower():
-        process_csv(csv_data, "departments")
-    elif "job" in f"{file_name}".lower():
-        process_csv(csv_data, "jobs")
+    if "employee" in f"{f_name}".lower():
+        process_csv(csv_data, "hired_employees", f_name, bucket)
+    elif "department" in f"{f_name}".lower():
+        process_csv(csv_data, "departments", f_name, bucket)
+    elif "job" in f"{f_name}".lower():
+        process_csv(csv_data, "jobs", f_name, bucket)
     else:
         print(f"File inserted des not belongs to any of the tables")
 
