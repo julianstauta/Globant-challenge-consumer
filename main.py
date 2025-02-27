@@ -35,21 +35,22 @@ def process_csv(csv_data, table, filename, bucket):
         print(f"Rows with missing values: {len(missing_data_df)}")
         print(f"Valid rows to insert: {len(valid_data_df)}")
 
-        # Upload rows with m,isssing values to a new file in GCS
-        csv_buffer = io.StringIO()
-        missing_data_df.to_csv(csv_buffer, index=False)
-        csv_buffer.seek(0)
+        if not missing_data_df.empty:
+            # Upload rows with m,isssing values to a new file in GCS
+            csv_buffer = io.StringIO()
+            missing_data_df.to_csv(csv_buffer, index=False)
+            csv_buffer.seek(0)
 
-        # Generate a timestamp string
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        # Define file path in GCS
-        destination_blob_name = f"rejected/{timestamp}_{filename}"
+            # Generate a timestamp string
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Define file path in GCS
+            destination_blob_name = f"rejected/{timestamp}_{filename}"
 
-        # Upload to GCS
-        blob = bucket.blob(destination_blob_name)
-        blob.upload_from_string(csv_buffer.getvalue(), content_type="text/csv")
+            # Upload to GCS
+            blob = bucket.blob(destination_blob_name)
+            blob.upload_from_string(csv_buffer.getvalue(), content_type="text/csv")
 
-        print(f"Missing data saved to: {destination_blob_name}")
+            print(f"Missing data saved to: {destination_blob_name}")
         
         # Process only valid rows
         batches = [valid_data_df.iloc[i:i + BATCH_SIZE] for i in range(0, len(valid_data_df), BATCH_SIZE)]
@@ -89,8 +90,6 @@ def gcs_trigger(cloud_event):
     if not file_name.startswith("input/"):
         print(f"Skipping file {file_name}, not in incoming-data/")
         return
-    
-    print(f"Processing file: {file_name}")
 
     print(f"New file detected: gs://{bucket_name}/{file_name}")
     # Download the file from GCS
